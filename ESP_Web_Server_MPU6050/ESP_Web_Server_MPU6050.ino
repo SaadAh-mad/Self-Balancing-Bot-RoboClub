@@ -18,6 +18,7 @@ AsyncEventSource events("/events");
 // ===== MPU Variables =====
 float gyroX, gyroY, gyroZ;
 float accX, accY, accZ;
+float tiltAcc = 0.0; 
 
 // ===== Timer =====
 unsigned long lastTime = 0;
@@ -109,6 +110,9 @@ void loop() {
     accY = ay / 16384.0;
     accZ = az / 16384.0;
 
+    tiltAcc = atan2(accY, accZ);  // in radians
+    float tiltDeg = tiltAcc * 180.0 / PI;  //converting thsi to degree
+
     gyroX = gx / 131.0 * DEG_TO_RAD;
     gyroY = gy / 131.0 * DEG_TO_RAD;
     gyroZ = gz / 131.0 * DEG_TO_RAD;
@@ -122,7 +126,6 @@ Serial.print(" | GYRO (rad/s): ");
 Serial.print(gyroX, 3); Serial.print(", ");
 Serial.print(gyroY, 3); Serial.print(", ");
 Serial.println(gyroZ, 3);
-
 
     // ===== SEND GYRO =====
     String gyroData = "{";
@@ -141,5 +144,11 @@ Serial.println(gyroZ, 3);
     accData += "}";
 
     events.send(accData.c_str(), "accelerometer_readings", millis());
+
+    String tiltData = "{";
+    tiltData += "\"tilt\":" + String(tiltDeg, 2);
+    tiltData += "}";
+    events.send(tiltData.c_str(), "tilt", millis());
+
   }
 }
