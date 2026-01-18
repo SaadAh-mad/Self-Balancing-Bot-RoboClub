@@ -1,100 +1,85 @@
-let scene, camera, rendered, cube;
+var gateway = `ws://${window.location.hostname}/ws`;
+var websocket;
 
-function parentWidth(elem) {
-  return elem.parentElement.clientWidth;
+window.addEventListener('load', onload);
+
+function onload(event) {
+    initWebSocket();
 }
 
-function parentHeight(elem) {
-  return elem.parentElement.clientHeight;
+function getValues() {
+    websocket.send("getValues");
 }
 
-function init3D(){
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
-
-  camera = new THREE.PerspectiveCamera(75, parentWidth(document.getElementById("3Dcube")) / parentHeight(document.getElementById("3Dcube")), 0.1, 1000);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(parentWidth(document.getElementById("3Dcube")), parentHeight(document.getElementById("3Dcube")));
-
-  document.getElementById('3Dcube').appendChild(renderer.domElement);
-
-  // Create a geometry
-  const geometry = new THREE.BoxGeometry(5, 1, 4);
-
-  // Materials of each face
-  var cubeMaterials = [
-    new THREE.MeshBasicMaterial({color:0x03045e}),
-    new THREE.MeshBasicMaterial({color:0x023e8a}),
-    new THREE.MeshBasicMaterial({color:0x0077b6}),
-    new THREE.MeshBasicMaterial({color:0x03045e}),
-    new THREE.MeshBasicMaterial({color:0x023e8a}),
-    new THREE.MeshBasicMaterial({color:0x0077b6}),
-  ];
-
-  const material = new THREE.MeshFaceMaterial(cubeMaterials);
-
-  cube = new THREE.Mesh(geometry, material);
-  scene.add(cube);
-  camera.position.z = 5;
-  renderer.render(scene, camera);
+function initWebSocket() {
+    console.log('Trying to open a WebSocket connection…');
+    websocket = new WebSocket(gateway);
+    websocket.onopen = onOpen;
+    websocket.onclose = onClose;
+    websocket.onmessage = onMessage;
 }
 
-// Resize the 3D object when the browser window changes size
-function onWindowResize(){
-  camera.aspect = parentWidth(document.getElementById("3Dcube")) / parentHeight(document.getElementById("3Dcube"));
-  //camera.aspect = window.innerWidth /  window.innerHeight;
-  camera.updateProjectionMatrix();
-  //renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setSize(parentWidth(document.getElementById("3Dcube")), parentHeight(document.getElementById("3Dcube")));
-
+function onOpen(event) {
+    console.log('Connection opened');
+    getValues();
 }
 
-window.addEventListener('resize', onWindowResize, false);
+function onClose(event) {
+    console.log('Connection closed');
+    setTimeout(initWebSocket, 2000);
+}
 
-// Create the 3D representation
-init3D();
+// Update PID parameter sliders
+function updatePIDSlider(element) {
+    var sliderId = element.id;
+    var sliderValue = document.getElementById(element.id).value;
+    
+    // Update display value
+    document.getElementById(sliderId + "Value").innerHTML = sliderValue;
+    
+    console.log(sliderId + ": " + sliderValue);
+    
+    // Send to ESP32 via WebSocket
+    websocket.send(sliderId + sliderValue.toString());
+}
 
-// Create events for the sensor readings
-if (!!window.EventSource) {
-  var source = new EventSource('/events');
+function onMessage(event) {
+    console.log(event.data);
+    var myObj = JSON.parse(event.data);
+    var keys = Object.keys(myObj);
 
-  source.addEventListener('open', function(e) {
-    console.log("Events Connected");
-  }, false);
-
-  source.addEventListener('error', function(e) {
-    if (e.target.readyState != EventSource.OPEN) {
-      console.log("Events Disconnected");
+    for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        
+        // Update display values
+        if (document.getElementById(key + "Value")) {
+            document.getElementById(key + "Value").innerHTML = myObj[key];
+        }
+        
+        // Update slider positions
+        if (document.getElementById(key)) {
+            document.getElementById(key).value = myObj[key];
+        }
     }
-  }, false);
-
-  source.addEventListener('gyro_readings', function(e) {
-    //console.log("gyro_readings", e.data);
-    var obj = JSON.parse(e.data);
-    document.getElementById("gyroX").innerHTML = obj.gyroX;
-    document.getElementById("gyroY").innerHTML = obj.gyroY;
-    document.getElementById("gyroZ").innerHTML = obj.gyroZ;
-
-    // Change cube rotation after receiving the readinds
-    cube.rotation.x = obj.gyroY;
-    cube.rotation.z = obj.gyroX;
-    cube.rotation.y = obj.gyroZ;
-    renderer.render(scene, camera);
-  }, false);
-
-  source.addEventListener('accelerometer_readings', function(e) {
-    console.log("accelerometer_readings", e.data);
-    var obj = JSON.parse(e.data);
-    document.getElementById("accX").innerHTML = obj.accX;
-    document.getElementById("accY").innerHTML = obj.accY;
-    document.getElementById("accZ").innerHTML = obj.accZ;
-  }, false);
 }
 
-function resetPosition(element){
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/"+element.id, true);
-  console.log(element.id);
-  xhr.send();
+// Optional: Reset button functionality
+function resetPID() {
+    document.getElementById("Kp").value = 20;
+    document.getElementById("Ki").value = 0;
+    document.getElementById("Kd").value = 0;
+    document.getElementById("target").value = -2.5;
+    
+    websocket.send("Kp20");
+    websocket.send("Ki0");
+    websocket.send("Kd0");
+    websocket.send("target-2.5");
+}
+
+// Optional: Emergency stop
+function emergencyStop() {
+    websocket.send("Kp0");
+    websocket.send("Ki0");
+    websocket.send("Kd0");
+    console.log("Emergency stop activated!");
 }

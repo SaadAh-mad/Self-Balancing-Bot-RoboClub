@@ -63,3 +63,35 @@ body {
   width: 20px;
   border-radius: 4px;
 }
+
+.slider {
+    -webkit-appearance: none;
+    margin: 0 auto;
+    width: 60%;
+    height: 15px;
+    border-radius: 10px;
+    background: #FFD65C;
+    outline: none;
+  }
+   .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #034078;
+    cursor: pointer;
+  }
+  .slider::-moz-range-thumb {
+    width: 30px;
+    height: 30px;
+    border-radius: 50% ;
+    background: #034078;
+    cursor: pointer;
+  }
+
+  .switch {
+  padding-left: 5%;
+  padding-right: 5%;
+}
+  
